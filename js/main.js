@@ -262,6 +262,22 @@
       if (e.key === "Escape") closeLightbox();
       else if (e.key === "ArrowLeft") show(current - 1);
       else if (e.key === "ArrowRight") show(current + 1);
+      else if (e.key === "Tab") {
+        // модальное окно: не выпускаем фокус на страницу под ним
+        // (a[href], а не [href] — иначе под селектор попадают <use href> внутри SVG)
+        const focusables = $$("button, a[href], [tabindex]:not([tabindex='-1'])", lightbox)
+          .filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+        if (focusables.length < 2) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     });
 
     // свайпы на мобильных
@@ -299,27 +315,78 @@
       if (kind) note.classList.add(kind);
     };
 
+    /* Поле с ошибкой помечаем не только текстом: aria-invalid + aria-describedby,
+       плюс визуальный класс на обёртке .field */
+    const markInvalid = (el, message) => {
+      if (!el) return;
+      el.setAttribute("aria-invalid", "true");
+      if (note) el.setAttribute("aria-describedby", note.id);
+      const wrap = el.closest(".field");
+      if (wrap) wrap.classList.add("is-invalid");
+      if (message) setNote(message, "is-err");
+    };
+    const clearInvalid = (el) => {
+      if (!el) return;
+      el.removeAttribute("aria-invalid");
+      el.removeAttribute("aria-describedby");
+      const wrap = el.closest(".field");
+      if (wrap) wrap.classList.remove("is-invalid");
+    };
+
+    const validateName = () => {
+      const el = $("#name");
+      if (!el) return true;
+      if (el.value.trim().length < 2) {
+        markInvalid(el, "Пожалуйста, укажите имя.");
+        return false;
+      }
+      clearInvalid(el);
+      return true;
+    };
+
+    const validatePhone = () => {
+      const el = $("#phone");
+      if (!el) return true;
+      if (el.value.replace(/\D/g, "").length < 10) {
+        markInvalid(el, "Пожалуйста, укажите корректный телефон.");
+        return false;
+      }
+      clearInvalid(el);
+      return true;
+    };
+
+    /* Валидируем при уходе из поля, а не только при отправке:
+       пустое поле не ругаем, пока пользователь его не заполнял */
+    [["#name", validateName], ["#phone", validatePhone]].forEach(([sel, validate]) => {
+      const el = $(sel);
+      if (!el) return;
+      el.addEventListener("blur", () => {
+        if (el.value.trim() !== "") validate();
+      });
+      el.addEventListener("input", () => {
+        if (el.getAttribute("aria-invalid") === "true") clearInvalid(el);
+      });
+    });
+
     form.addEventListener("submit", (e) => {
       e.preventDefault();
 
-      const name = $("#name").value.trim();
-      const phone = $("#phone").value.trim();
-
-      if (name.length < 2) {
-        setNote("Пожалуйста, укажите имя.", "is-err");
+      if (!validateName()) {
         $("#name").focus();
         return;
       }
-      if (phone.replace(/\D/g, "").length < 10) {
-        setNote("Пожалуйста, укажите корректный телефон.", "is-err");
+      if (!validatePhone()) {
         $("#phone").focus();
         return;
       }
       if (checkin.value && checkout.value && checkout.value < checkin.value) {
-        setNote("Дата выезда не может быть раньше даты заезда.", "is-err");
+        markInvalid(checkout, "Дата выезда не может быть раньше даты заезда.");
         return;
       }
+      clearInvalid(checkout);
 
+      const name = $("#name").value.trim();
+      const phone = $("#phone").value.trim();
       const guests = $("#guests").value || "—";
       const comment = $("#comment").value.trim();
 
