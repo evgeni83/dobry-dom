@@ -888,8 +888,11 @@ ul { list-style: none; padding: 0; }
   line-height: 1;
   color: var(--ink);
 }
-.reviews__score .stars { justify-content: center; margin: 12px 0 10px; }
-.reviews__meta { font-size: .88rem; color: var(--muted); }
+/* Оценка по центру, тремя строками: «5,0» → звёзды → подпись.
+   Звёзды делаем блочными (flex на всю ширину), иначе inline-flex делит одну
+   строку с inline-подписью и «висит» выше базовой линии текста. */
+.reviews__score .stars { display: flex; justify-content: center; margin: 12px 0 10px; }
+.reviews__meta { display: block; font-size: .88rem; color: var(--muted); }
 .reviews__bars { display: grid; gap: 9px; }
 .bar { display: flex; align-items: center; gap: 12px; font-size: .82rem; color: var(--muted); }
 .bar span { width: 12px; text-align: right; }
